@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Zookeeper - Required for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - payment-network
+
+  # Kafka Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - payment-network
+
+  # Kafka UI - For visualizing topics and messages
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - payment-network
+
+  # PostgreSQL - Order Service Database
+  postgres-order:
+    image: postgres:15-alpine
+    container_name: postgres-order
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: orderuser
+      POSTGRES_PASSWORD: orderpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - order-data:/var/lib/postgresql/data
+    networks:
+      - payment-network
+
+  # PostgreSQL - Inventory Service Database
+  postgres-inventory:
+    image: postgres:15-alpine
+    container_name: postgres-inventory
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventoryuser
+      POSTGRES_PASSWORD: inventorypass
+    ports:
+      - "5433:5432"
+    volumes:
+      - inventory-data:/var/lib/postgresql/data
+    networks:
+      - payment-network
+
+  # PostgreSQL - Payment Service Database
+  postgres-payment:
+    image: postgres:15-alpine
+    container_name: postgres-payment
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: paymentuser
+      POSTGRES_PASSWORD: paymentpass
+    ports:
+      - "5434:5432"
+    volumes:
+      - payment-data:/var/lib/postgresql/data
+    networks:
+      - payment-network
+
+  # PostgreSQL - Shipping Service Database
+  postgres-shipping:
+    image: postgres:15-alpine
+    container_name: postgres-shipping
+    environment:
+      POSTGRES_DB: shipping_db
+      POSTGRES_USER: shippinguser
+      POSTGRES_PASSWORD: shippingpass
+    ports:
+      - "5435:5432"
+    volumes:
+      - shipping-data:/var/lib/postgresql/data
+    networks:
+      - payment-network
+
+  # PostgreSQL - Notification Service Database
+  postgres-notification:
+    image: postgres:15-alpine
+    container_name: postgres-notification
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: notificationuser
+      POSTGRES_PASSWORD: notificationpass
+    ports:
+      - "5436:5432"
+    volumes:
+      - notification-data:/var/lib/postgresql/data
+    networks:
+      - payment-network
+
+  # Redis - For Payment Service Idempotency
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - payment-network
+
+networks:
+  payment-network:
+    driver: bridge
+
+volumes:
+  order-data:
+  inventory-data:
+  payment-data:
+  shipping-data:
+  notification-data:
+  redis-data:
